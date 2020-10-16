@@ -25,7 +25,7 @@ disp( 'Done!' );
 save('furuta_real.mat','Phi_real','Psi_p_real','JPhi_real')
 
 
-%% Pre-processing: colect 5 small random trajectories around x0  
+%% 
 clear
 clc
 close all
@@ -94,7 +94,7 @@ end
     
 rotate3d on
 
-%% Train NN
+%% train NN
 trainFcn = 'trainlm';  % Levenberg-Marquardt backpropagation.
 
 % Create a Fitting Network
@@ -134,7 +134,7 @@ fclose('all');
 
 [~,~,~,x1_step1,y1_step1] = myNN(rand(4,1));
 
-%% test how well NN can capture the local dynamics 
+%% test how well NN can capture the dynamics 
 x0 = [0;pi;0;0];
 iter_max = 50;
 u = 0.1*ones(iter_max,1);
@@ -178,7 +178,7 @@ end
 
 RMSE = sqrt(mean((H(:)-H_real(:)).^2))  
 
-%% Part 1: Apply u to the system --> collect data --> train NN --> compute u --> repeat 
+%% Steer %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clc
 dt = 0.01;
 T = 2;
