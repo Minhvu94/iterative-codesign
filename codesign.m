@@ -1,4 +1,4 @@
-%% Part 1: Apply u to the system --> collect data --> train NN --> compute u --> repeat 
+%% Steer %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear
 clc
 close all
@@ -12,9 +12,10 @@ x0 = [0;pi;0;0];
 x_target = [0;0;0;0];
 
 % u = 0.1*ones(iter_max,1);
-u = 0.5*rand(iter_max,1);
+u = 0.3*rand(iter_max,1);
 
 net = []; NN_input = []; NN_output = [];
+
 rep = 1;
 count = 0;
 rejected = false;
@@ -44,15 +45,9 @@ while continue_iterating  % Iterating scheme: U --> trajactory [x(0)...x(N)] -->
             A_real_store{iter} = R_big(1:4,1:4);     % A in Ax+Bu
             B_real_store{iter} = R_big(1:4,5:5);     % B in Ax+Bu
 
-            jac = NN_jacob(net, [x_traj(2:4,iter);u(iter)], x1_step1, y1_step1);
-            A_store{iter} = [1    0          dt          0;
-                             0    1          0           dt;
-                             0 jac(1,1)  jac(1,2)  jac(1,3);
-                             0 jac(2,1)  jac(2,2)  jac(2,3);];
-            B_store{iter} = [0;
-                             0;
-                             jac(1,4);
-                             jac(2,4)];
+            jac = NN_jacob(net, [x_traj(:,iter);u(iter)], x1_step1, y1_step1);
+            A_store{iter} = jac(:,1:4);
+            B_store{iter} = jac(:,5);
         end
         
         cost_old = norm(xn-x_target);       
@@ -77,7 +72,7 @@ while continue_iterating  % Iterating scheme: U --> trajactory [x(0)...x(N)] -->
         figure(1)
         clf
         hold on 
-        plot3(NN_input(1,:),NN_input(3,:),NN_input(4,:),'.');
+        plot3(NN_input(2,:),NN_input(4,:),NN_input(5,:),'.');
         plot3(x_traj(2,1:end-1),x_traj(4,1:end-1),u','r','LineWidth',2)
         view(2);
         xlabel('theta 2')
@@ -173,49 +168,8 @@ rotate3d on
 
 end
 
+
 function [net,x1_step1,y1_step1,NN_input,NN_output] = sampling_and_train(x_start_sample,net,NN_input,NN_output)
-% -------------------- sampling --------------------
-load('dis_info.mat')
-dt = 0.01;
-n_of_samples = 0;
-n_of_random_steps = 10;
-
-tt = dt:dt:dt*n_of_random_steps;
-
-signal_store = [ones(n_of_random_steps,1), sin(2*tt)', cos(2*tt)', sin(4*tt)', cos(4*tt)', sin(6*tt)', cos(6*tt)', sin(8*tt)', cos(8*tt)', sin(10*tt)', cos(10*tt)',sin(12*tt)', cos(12*tt)'];
-nbasis = size(signal_store,2);
-
-for k_sample = 1:n_of_samples
-        
-        alpha = 0.5*k_sample*(rand(nbasis,1)-.5)*2;        
-        u_test = signal_store*alpha;
-        
-        x = x_start_sample;
-        x_traj = x_start_sample;
-
-        % Apply random u_test to real system 
-        for iter = 1:n_of_random_steps
-            [~, x_trajJ_fine] = adaptive_taylor(p,Phi,Psi_p,[0 dt],[x;u_test(iter)]);
-            x = x_trajJ_fine(end,:)';
-            x = x(1:4);
-            x_traj = [x_traj x];
-        end
-
-        x_traj(2,:) = sign(x_traj(2,:)).*mod(abs(x_traj(2,:)),2*pi);
-
-        NN_input = [NN_input, [x_traj(2:4,1:end-1);u_test'] ];
-        NN_output = [NN_output, [x_traj(3,2:end);x_traj(4,2:end)] ];                  
-        
-        % remove data that are too large (outside the neccessary area)                       
-        FI = find((-pi <=  NN_input(1,:)));
-        NN_input = NN_input(:,FI);
-        NN_output = NN_output(:,FI);
-        
-        FI = find(abs(NN_input(4,:))<=10);
-        NN_input = NN_input(:,FI);
-        NN_output = NN_output(:,FI);
-end
-
 
 % -------------------- training --------------------
 if isempty(net)
@@ -260,7 +214,7 @@ fid = fopen('myNN.m', 'w');
 fprintf(fid, '%s\n', A{:});
 fclose('all');
 
-[~,~,~,x1_step1,y1_step1] = myNN(rand(4,1));
+[~,~,~,x1_step1,y1_step1] = myNN(rand(5,1));
 end
 
 function [NN_input,NN_output] = store_training_data(NN_input,NN_output,x_traj,u)
@@ -273,13 +227,7 @@ function [NN_input,NN_output] = store_training_data(NN_input,NN_output,x_traj,u)
     end
     
     % Add the current trajectory 
-    x_traj(2,:) = sign(x_traj(2,:)).*mod(abs(x_traj(2,:)),2*pi);
-    NN_input = [NN_input, [x_traj(2:4,1:end-1);u'] ];
-    NN_output = [NN_output, [x_traj(3,2:end);x_traj(4,2:end)] ];
+    NN_input = [NN_input, [x_traj(:,1:end-1);u'] ];
+    NN_output = [NN_output, x_traj(:,2:end)];
 end
-
-
-
-
-
 
