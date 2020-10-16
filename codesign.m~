@@ -25,7 +25,7 @@ disp( 'Done!' );
 save('furuta_real.mat','Phi_real','Psi_p_real','JPhi_real')
 
 
-%% 
+%% Pre-processing: colect 5 small random trajectories around x0  
 clear
 clc
 close all
@@ -94,7 +94,7 @@ end
     
 rotate3d on
 
-%% train NN
+%% Train NN
 trainFcn = 'trainlm';  % Levenberg-Marquardt backpropagation.
 
 % Create a Fitting Network
@@ -134,7 +134,7 @@ fclose('all');
 
 [~,~,~,x1_step1,y1_step1] = myNN(rand(4,1));
 
-%% test how well NN can capture the dynamics 
+%% test how well NN can capture the local dynamics 
 x0 = [0;pi;0;0];
 iter_max = 50;
 u = 0.1*ones(iter_max,1);
@@ -178,7 +178,7 @@ end
 
 RMSE = sqrt(mean((H(:)-H_real(:)).^2))  
 
-%% Steer %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Part 1: Apply u to the system --> collect data --> train NN --> compute u --> repeat 
 clc
 dt = 0.01;
 T = 2;
@@ -403,6 +403,30 @@ end
 
 
 % -------------------- training --------------------
+if isempty(net)
+    trainFcn = 'trainlm';  % Levenberg-Marquardt backpropagation.
+    hiddenLayerSize = [20 20];
+    net = fitnet(hiddenLayerSize,trainFcn);
+
+    net.input.processFcns = {'removeconstantrows','mapminmax'};
+    net.output.processFcns = {'removeconstantrows','mapminmax'};
+
+    net.divideFcn = 'dividerand';  % Divide data randomly
+    net.divideMode = 'sample';  % Divide up every sample
+    net.divideParam.trainRatio = 85/100;
+    net.divideParam.valRatio = 10/100;
+    net.divideParam.testRatio = 5/100;
+
+    net.trainParam.epochs=250;
+    net.performFcn = 'mse';  % Mean Squared Error
+
+% Train the Network
+[net,tr] = train(net,NN_input,NN_output,'useParallel','yes','showResources','yes');
+% view(net)
+genFunction(net,'myNN');
+    
+else
+
 net.trainParam.epochs=250;
 
 % Train the Network
@@ -427,6 +451,7 @@ fid = fopen('myNN.m', 'w');
 fprintf(fid, '%s\n', A{:});
 fclose('all');
 
+end
 [~,~,~,x1_step1,y1_step1] = myNN(rand(4,1));
 end
 
